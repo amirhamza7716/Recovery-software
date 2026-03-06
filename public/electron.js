@@ -51,7 +51,7 @@ function getFileType(ext) {
 }
 
 // ── Local file scan ────────────────────────────────────────────────────────
-async function scanDir(dirPath, win, results) {
+async function scanDir(dirPath, win, results, types) {
   let entries;
   try { entries = await fs.promises.readdir(dirPath); } catch { return; }
 
@@ -61,11 +61,11 @@ async function scanDir(dirPath, win, results) {
     try { stat = await fs.promises.stat(fullPath); } catch { continue; }
 
     if (stat.isDirectory()) {
-      await scanDir(fullPath, win, results);
+      await scanDir(fullPath, win, results, types);
     } else {
       const ext = path.extname(entry).toLowerCase().slice(1);
       const type = getFileType(ext);
-      if (type) {
+      if (type && types.includes(type)) {
         results.push({ path: fullPath, name: entry, size: stat.size, type, ext, modified: stat.mtime.toISOString() });
         if (results.length % 20 === 0) {
           win.webContents.send('scan-progress', { found: results.length, current: entry });
@@ -197,19 +197,19 @@ ipcMain.handle('adb-find-xhide', async (_, serial) => {
   return found;
 });
 
-ipcMain.handle('adb-scan-path', async (event, serial, remotePath) => {
+ipcMain.handle('adb-scan-path', async (event, serial, remotePath, types = ['image', 'video', 'document']) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const flag = serial ? `-s ${serial}` : '';
 
   win.webContents.send('scan-progress', { found: 0, current: `Scanning ${remotePath}…` });
 
   try {
-    // Get all files recursively
     const out = await runAdb(`${flag} shell find "${remotePath}" -type f 2>/dev/null`);
     if (!out) return [];
 
     const lines = out.split('\n').filter(Boolean);
     const files = [];
+    const isXhide = remotePath.toLowerCase().includes('xhide') || remotePath.toLowerCase().includes('hide');
 
     for (let i = 0; i < lines.length; i++) {
       const filePath = lines[i].trim();
@@ -217,10 +217,8 @@ ipcMain.handle('adb-scan-path', async (event, serial, remotePath) => {
       const ext = path.extname(name).toLowerCase().slice(1);
       const type = getFileType(ext);
 
-      // For XHide: include ALL file types (files may be renamed/have no ext)
-      if (!remotePath.toLowerCase().includes('xhide') && !remotePath.toLowerCase().includes('hide')) {
-        if (!type) continue;
-      }
+      // For non-XHide paths: skip unknown extensions
+      if (!isXhide && !type) continue;
 
       let size = 0;
       try {
@@ -228,7 +226,10 @@ ipcMain.handle('adb-scan-path', async (event, serial, remotePath) => {
         size = parseInt(s) || 0;
       } catch {}
 
-      const detectedType = type || (size > 5000000 ? 'video' : 'image'); // guess for renamed files
+      const detectedType = type || (size > 5000000 ? 'video' : 'image');
+
+      // Apply the user-selected type filter
+      if (!types.includes(detectedType)) continue;
 
       files.push({
         path: filePath,
@@ -394,10 +395,10 @@ ipcMain.handle('get-drives', async () => {
   });
 });
 
-ipcMain.handle('scan-directory', async (event, dirPath) => {
+ipcMain.handle('scan-directory', async (event, dirPath, types = ['image', 'video', 'document']) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const results = [];
-  await scanDir(dirPath, win, results);
+  await scanDir(dirPath, win, results, types);
   win.webContents.send('scan-progress', { found: results.length, current: '' });
   return results;
 });

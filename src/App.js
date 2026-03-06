@@ -12,6 +12,7 @@ const SCREENS = {
   PHONE_CONNECT: 'phone_connect',
   PHONE_XHIDE: 'phone_xhide',
   SELECT: 'select',
+  SCAN_OPTIONS: 'scan_options',
   SCANNING: 'scanning',
   RESULTS: 'results',
   RESTORING: 'restoring',
@@ -393,8 +394,80 @@ function SelectScreen({ recoveryType, onBack, onScan, onHome }) {
   );
 }
 
+// ─── SCAN OPTIONS ─────────────────────────────────────────────────────────────
+const TYPE_OPTIONS = [
+  { key: 'image',    icon: '🖼️', label: 'Images',             desc: 'JPG, PNG, HEIC, RAW, BMP…' },
+  { key: 'video',    icon: '🎬', label: 'Videos',             desc: 'MP4, MOV, AVI, MKV, 3GP…'  },
+  { key: 'document', icon: '📄', label: 'Documents & Files',  desc: 'PDF, DOCX, ZIP, RAR, TXT…' },
+];
+
+function ScanOptionsScreen({ onBack, onScan, onHome }) {
+  const [types, setTypes] = useState(new Set(['image', 'video', 'document']));
+
+  function toggle(t) {
+    setTypes((prev) => {
+      const next = new Set(prev);
+      next.has(t) ? next.delete(t) : next.add(t);
+      return next;
+    });
+  }
+
+  const selectedLabels = TYPE_OPTIONS.filter((o) => types.has(o.key)).map((o) => o.label).join(', ');
+
+  return (
+    <div className="screen scan-options-screen">
+      <div className="screen-nav">
+        <button className="back-btn" onClick={onBack}>← Back</button>
+        <button className="home-btn" onClick={onHome}>✕ Home</button>
+      </div>
+
+      <div className="scan-options-header">
+        <div className="scan-options-icon">🔍</div>
+        <h2>What to Scan For?</h2>
+        <p className="subtitle">Choose the file types you want to recover — select one or more</p>
+      </div>
+
+      <div className="type-cards">
+        {TYPE_OPTIONS.map((opt) => {
+          const sel = types.has(opt.key);
+          return (
+            <button
+              key={opt.key}
+              className={`type-card ${sel ? 'selected' : ''}`}
+              onClick={() => toggle(opt.key)}
+            >
+              <div className={`type-card-check ${sel ? 'visible' : ''}`}>✓</div>
+              <div className="type-card-icon">{opt.icon}</div>
+              <div className="type-card-body">
+                <span className="type-card-label">{opt.label}</span>
+                <span className="type-card-desc">{opt.desc}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {types.size === 0 ? (
+        <p className="type-warning">⚠️ Please select at least one file type</p>
+      ) : (
+        <p className="type-summary">
+          Scanning for: <strong>{selectedLabels}</strong>
+        </p>
+      )}
+
+      <button
+        className="btn-primary large"
+        disabled={types.size === 0}
+        onClick={() => onScan([...types])}
+      >
+        Start Scan →
+      </button>
+    </div>
+  );
+}
+
 // ─── SCANNING ────────────────────────────────────────────────────────────────
-function ScanningScreen({ sourcePath, serial, onDone, onHome }) {
+function ScanningScreen({ sourcePath, serial, onDone, onHome, selectedTypes }) {
   const [found, setFound] = useState(0);
   const [current, setCurrent] = useState('');
   const [done, setDone] = useState(false);
@@ -408,8 +481,8 @@ function ScanningScreen({ sourcePath, serial, onDone, onHome }) {
     });
 
     const scanPromise = serial
-      ? api.adbScanPath(serial, sourcePath)
-      : api.scanDirectory(sourcePath);
+      ? api.adbScanPath(serial, sourcePath, selectedTypes)
+      : api.scanDirectory(sourcePath, selectedTypes);
 
     scanPromise.then((files) => {
       setDone(true);
@@ -834,13 +907,14 @@ function DoneScreen({ count, onRestart }) {
 
 // ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 const STEPS = [
-  { key: SCREENS.HOME, label: 'Start' },
+  { key: SCREENS.HOME,          label: 'Start' },
   { key: SCREENS.PHONE_CONNECT, label: 'Connect Phone', extra: [SCREENS.PHONE_XHIDE] },
-  { key: SCREENS.SELECT, label: 'Select Source' },
-  { key: SCREENS.SCANNING, label: 'Scan' },
-  { key: SCREENS.RESULTS, label: 'Results' },
-  { key: SCREENS.RESTORING, label: 'Restore' },
-  { key: SCREENS.DONE, label: 'Done' },
+  { key: SCREENS.SELECT,        label: 'Select Source' },
+  { key: SCREENS.SCAN_OPTIONS,  label: 'File Types' },
+  { key: SCREENS.SCANNING,      label: 'Scan' },
+  { key: SCREENS.RESULTS,       label: 'Results' },
+  { key: SCREENS.RESTORING,     label: 'Restore' },
+  { key: SCREENS.DONE,          label: 'Done' },
 ];
 
 function Sidebar({ screen }) {
@@ -849,6 +923,7 @@ function Sidebar({ screen }) {
     SCREENS.PHONE_CONNECT,
     SCREENS.PHONE_XHIDE,
     SCREENS.SELECT,
+    SCREENS.SCAN_OPTIONS,
     SCREENS.SCANNING,
     SCREENS.RESULTS,
     SCREENS.RESTORING,
@@ -916,6 +991,7 @@ export default function App() {
   const [scannedFiles, setScannedFiles] = useState([]);
   const [filesToRestore, setFilesToRestore] = useState([]);
   const [restoredCount, setRestoredCount] = useState(0);
+  const [selectedTypes, setSelectedTypes] = useState(['image', 'video', 'document']);
 
   const handleScanDone = useCallback((files) => {
     setScannedFiles(files);
@@ -943,21 +1019,25 @@ export default function App() {
     if (recoveryType === 'xhide') {
       go(SCREENS.PHONE_XHIDE);
     } else {
-      // scan full phone
       setSourcePath('/sdcard');
-      go(SCREENS.SCANNING);
+      go(SCREENS.SCAN_OPTIONS);
     }
   }
 
   function handleXhideScan(ser, path) {
     setSerial(ser);
     setSourcePath(path);
-    go(SCREENS.SCANNING);
+    go(SCREENS.SCAN_OPTIONS);
   }
 
   function handleLocalScan(path) {
     setSerial(null);
     setSourcePath(path);
+    go(SCREENS.SCAN_OPTIONS);
+  }
+
+  function handleScanOptions(types) {
+    setSelectedTypes(types);
     go(SCREENS.SCANNING);
   }
 
@@ -1015,10 +1095,21 @@ export default function App() {
           />
         )}
 
+        {screen === SCREENS.SCAN_OPTIONS && (
+          <ScanOptionsScreen
+            onBack={() => go(serial
+              ? (recoveryType === 'xhide' ? SCREENS.PHONE_XHIDE : SCREENS.PHONE_CONNECT)
+              : SCREENS.SELECT)}
+            onScan={handleScanOptions}
+            onHome={handleRestart}
+          />
+        )}
+
         {screen === SCREENS.SCANNING && (
           <ScanningScreen
             sourcePath={sourcePath}
             serial={serial}
+            selectedTypes={selectedTypes}
             onDone={handleScanDone}
             onHome={handleRestart}
           />

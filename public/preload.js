@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Local
   getDrives: () => ipcRenderer.invoke('get-drives'),
-  scanDirectory: (path) => ipcRenderer.invoke('scan-directory', path),
+  scanDirectory: (path, types) => ipcRenderer.invoke('scan-directory', path, types),
   restoreFiles: (files, dest) => ipcRenderer.invoke('restore-files', files, dest),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
 
@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adbDevices: () => ipcRenderer.invoke('adb-devices'),
   adbDeviceInfo: (serial) => ipcRenderer.invoke('adb-device-info', serial),
   adbFindXhide: (serial) => ipcRenderer.invoke('adb-find-xhide', serial),
-  adbScanPath: (serial, path) => ipcRenderer.invoke('adb-scan-path', serial, path),
+  adbScanPath: (serial, path, types) => ipcRenderer.invoke('adb-scan-path', serial, path, types),
   adbPullFiles: (serial, files, dest) => ipcRenderer.invoke('adb-pull-files', serial, files, dest),
   adbPullPreview: (serial, path) => ipcRenderer.invoke('adb-pull-preview', serial, path),
 
