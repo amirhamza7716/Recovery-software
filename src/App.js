@@ -750,9 +750,6 @@ function NotElectronWarning() {
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  if (!hasApi()) {
-    return <NotElectronWarning />;
-  }
   const [screen, setScreen] = useState(SCREENS.HOME);
   const [recoveryType, setRecoveryType] = useState(null);
   const [sourcePath, setSourcePath] = useState(null);
@@ -761,6 +758,15 @@ export default function App() {
   const [scannedFiles, setScannedFiles] = useState([]);
   const [filesToRestore, setFilesToRestore] = useState([]);
   const [restoredCount, setRestoredCount] = useState(0);
+
+  const handleScanDone = useCallback((files) => {
+    setScannedFiles(files);
+    setScreen(SCREENS.RESULTS);
+  }, []);
+
+  if (!hasApi()) {
+    return <NotElectronWarning />;
+  }
 
   const go = (s) => setScreen(s);
 
@@ -797,10 +803,6 @@ export default function App() {
     go(SCREENS.SCANNING);
   }
 
-  const handleScanDone = useCallback((files) => {
-    setScannedFiles(files);
-    go(SCREENS.RESULTS);
-  }, []);
 
   function handleRestore(files) {
     setFilesToRestore(files);
