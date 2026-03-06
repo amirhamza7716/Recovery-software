@@ -398,9 +398,22 @@ ipcMain.handle('scan-directory', async (event, dirPath) => {
   return results;
 });
 
-ipcMain.handle('select-directory', async () => {
-  const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
-  return result.filePaths[0] || null;
+ipcMain.handle('select-directory', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  // Use openFile + openDirectory so the dialog always has a clickable "Open" button on Linux GTK.
+  // If the user picks a file we use its parent folder; if they pick a folder we use it directly.
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openFile', 'openDirectory'],
+    title: 'Select Destination Folder — navigate into your folder, then click Open',
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const selected = result.filePaths[0];
+  try {
+    const stat = fs.statSync(selected);
+    return stat.isDirectory() ? selected : path.dirname(selected);
+  } catch {
+    return selected;
+  }
 });
 
 ipcMain.handle('restore-files', async (event, files, destDir) => {

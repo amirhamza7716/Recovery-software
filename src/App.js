@@ -629,7 +629,13 @@ function RestoringScreen({ files, serial, onDone }) {
           <h2>Choose Restore Location</h2>
           <p className="subtitle">Where should the recovered files be saved on this PC?</p>
           <div className="dest-picker">
-            <input type="text" className="dest-input" placeholder="Select destination folder…" value={destPath} readOnly />
+            <input
+              type="text"
+              className="dest-input"
+              placeholder="Type a folder path or click Browse…"
+              value={destPath}
+              onChange={(e) => setDestPath(e.target.value)}
+            />
             <button className="btn-secondary" onClick={pickDest}>Browse</button>
           </div>
           <div className="restore-summary">
