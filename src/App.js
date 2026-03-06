@@ -77,7 +77,7 @@ function HomeScreen({ onSelect }) {
 }
 
 // ─── PHONE CONNECT ───────────────────────────────────────────────────────────
-function PhoneConnectScreen({ mode, onBack, onConnected, onScan }) {
+function PhoneConnectScreen({ mode, onBack, onConnected, onHome }) {
   const [adbReady, setAdbReady] = useState(null);
   const [devices, setDevices] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -120,7 +120,10 @@ function PhoneConnectScreen({ mode, onBack, onConnected, onScan }) {
 
   return (
     <div className="screen connect-screen">
-      <button className="back-btn" onClick={onBack}>← Back</button>
+      <div className="screen-nav">
+        <button className="back-btn" onClick={onBack}>← Back</button>
+        <button className="home-btn" onClick={onHome}>✕ Home</button>
+      </div>
       <h2>{isXhide ? '🔐 Connect to Infinix Phone' : '📱 Connect Phone via USB'}</h2>
 
       {isXhide && (
@@ -216,7 +219,7 @@ function PhoneConnectScreen({ mode, onBack, onConnected, onScan }) {
 }
 
 // ─── XHIDE FINDER ────────────────────────────────────────────────────────────
-function XHideFinder({ serial, deviceInfo, onBack, onScan }) {
+function XHideFinder({ serial, deviceInfo, onBack, onScan, onHome }) {
   const [searching, setSearching] = useState(false);
   const [paths, setPaths] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -234,7 +237,10 @@ function XHideFinder({ serial, deviceInfo, onBack, onScan }) {
 
   return (
     <div className="screen xhide-screen">
-      <button className="back-btn" onClick={onBack}>← Back</button>
+      <div className="screen-nav">
+        <button className="back-btn" onClick={onBack}>← Back</button>
+        <button className="home-btn" onClick={onHome}>✕ Home</button>
+      </div>
       <div className="device-badge">
         📱 {deviceInfo ? `${deviceInfo.brand} ${deviceInfo.model}` : serial}
       </div>
@@ -301,7 +307,7 @@ function XHideFinder({ serial, deviceInfo, onBack, onScan }) {
 }
 
 // ─── SELECT SOURCE (local drives) ────────────────────────────────────────────
-function SelectScreen({ recoveryType, onBack, onScan }) {
+function SelectScreen({ recoveryType, onBack, onScan, onHome }) {
   const [drives, setDrives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -339,7 +345,10 @@ function SelectScreen({ recoveryType, onBack, onScan }) {
 
   return (
     <div className="screen select-screen">
-      <button className="back-btn" onClick={onBack}>← Back</button>
+      <div className="screen-nav">
+        <button className="back-btn" onClick={onBack}>← Back</button>
+        <button className="home-btn" onClick={onHome}>✕ Home</button>
+      </div>
       <h2>{titles[recoveryType] || '📂 Select Source'}</h2>
       <p className="subtitle">Plug in your device then click Refresh — or browse manually</p>
 
@@ -385,7 +394,7 @@ function SelectScreen({ recoveryType, onBack, onScan }) {
 }
 
 // ─── SCANNING ────────────────────────────────────────────────────────────────
-function ScanningScreen({ sourcePath, serial, onDone }) {
+function ScanningScreen({ sourcePath, serial, onDone, onHome }) {
   const [found, setFound] = useState(0);
   const [current, setCurrent] = useState('');
   const [done, setDone] = useState(false);
@@ -414,6 +423,9 @@ function ScanningScreen({ sourcePath, serial, onDone }) {
 
   return (
     <div className="screen scanning-screen">
+      {!done && (
+        <button className="home-btn scanning-cancel" onClick={onHome}>✕ Cancel</button>
+      )}
       <div className="scan-anim">{done ? '✅' : '🔍'}</div>
       <h2>{done ? 'Scan Complete!' : 'Scanning…'}</h2>
       <p className="subtitle">
@@ -438,11 +450,12 @@ function ScanningScreen({ sourcePath, serial, onDone }) {
 }
 
 // ─── RESULTS ─────────────────────────────────────────────────────────────────
-function ResultsScreen({ files, serial, onBack, onRestore }) {
+function ResultsScreen({ files, serial, onBack, onRestore, onHome }) {
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
   const [viewMode, setViewMode] = useState('grid');
   const [previews, setPreviews] = useState({});
+  const [previewFile, setPreviewFile] = useState(null);
 
   const counts = {
     all: files.length,
@@ -453,6 +466,14 @@ function ResultsScreen({ files, serial, onBack, onRestore }) {
 
   const visible = filter === 'all' ? files : files.filter((f) => f.type === filter);
 
+  // True only when every file in the current tab is selected
+  const allVisibleSelected = visible.length > 0 && visible.every((f) => selected.has(f.path));
+
+  const tabNames = { all: '', image: 'Images', video: 'Videos', document: 'Files' };
+  const selectAllLabel = allVisibleSelected
+    ? `Deselect All${tabNames[filter] ? ' ' + tabNames[filter] : ''}`
+    : `Select All${tabNames[filter] ? ' ' + tabNames[filter] : ''}`;
+
   function toggleFile(f) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -461,12 +482,17 @@ function ResultsScreen({ files, serial, onBack, onRestore }) {
     });
   }
 
+  // Only affects files in the current tab — other tabs remain untouched
   function toggleAll() {
-    if (selected.size === visible.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(visible.map((f) => f.path)));
-    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visible.forEach((f) => next.delete(f.path));
+      } else {
+        visible.forEach((f) => next.add(f.path));
+      }
+      return next;
+    });
   }
 
   async function loadPreview(file) {
@@ -494,7 +520,7 @@ function ResultsScreen({ files, serial, onBack, onRestore }) {
         </div>
         <div className="results-actions">
           <button className="btn-ghost" onClick={toggleAll}>
-            {selected.size === visible.length ? 'Deselect All' : 'Select All'}
+            {selectAllLabel}
           </button>
           <button
             className="btn-primary"
@@ -503,6 +529,7 @@ function ResultsScreen({ files, serial, onBack, onRestore }) {
           >
             Restore {selected.size > 0 ? `(${selected.size})` : ''} →
           </button>
+          <button className="home-btn" onClick={onHome}>✕ Home</button>
         </div>
       </div>
 
@@ -540,16 +567,29 @@ function ResultsScreen({ files, serial, onBack, onRestore }) {
               onToggle={() => toggleFile(f)}
               adbPreview={serial ? previews[f.path] : undefined}
               onVisible={() => loadPreview(f)}
+              onPreview={() => setPreviewFile(f)}
             />
           ))}
         </div>
+      )}
+
+      {previewFile && (
+        <LightboxViewer
+          file={previewFile}
+          visibleFiles={visible}
+          onClose={() => setPreviewFile(null)}
+          previews={previews}
+          serial={serial}
+          onLoadPreview={loadPreview}
+        />
       )}
     </div>
   );
 }
 
-function FileCard({ file, viewMode, checked, onToggle, adbPreview, onVisible }) {
+function FileCard({ file, viewMode, checked, onToggle, adbPreview, onVisible, onPreview }) {
   const localUrl = file.source !== 'adb' ? `file://${file.path}` : null;
+  const canPreview = file.type === 'image' || file.type === 'video';
 
   useEffect(() => {
     if (file.source === 'adb' && file.type === 'image' && onVisible) {
@@ -569,6 +609,15 @@ function FileCard({ file, viewMode, checked, onToggle, adbPreview, onVisible }) 
         <span className="list-name" title={file.path}>{file.name}</span>
         <span className="list-size">{formatSize(file.size)}</span>
         <span className="list-date">{formatDate(file.modified)}</span>
+        {canPreview && (
+          <button
+            className="list-preview-btn"
+            onClick={(e) => { e.stopPropagation(); onPreview(); }}
+            title={file.type === 'video' ? 'Play video' : 'View image'}
+          >
+            {file.type === 'video' ? '▶ Play' : '👁 View'}
+          </button>
+        )}
       </div>
     );
   }
@@ -578,6 +627,15 @@ function FileCard({ file, viewMode, checked, onToggle, adbPreview, onVisible }) 
       <div className="file-thumb">
         {file.type === 'image' && imgSrc ? (
           <img src={imgSrc} alt={file.name} loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
+        ) : file.type === 'video' && localUrl ? (
+          <video
+            src={localUrl}
+            preload="metadata"
+            muted
+            playsInline
+            className="thumb-video"
+            onLoadedMetadata={(e) => { e.target.currentTime = 1; }}
+          />
         ) : (
           <div className="thumb-icon">
             {file.type === 'video' ? '🎬' : file.type === 'image' ? '🖼️' : '📄'}
@@ -585,6 +643,15 @@ function FileCard({ file, viewMode, checked, onToggle, adbPreview, onVisible }) 
         )}
         {adbPreview === 'loading' && <div className="thumb-loading" />}
         <div className={`check-overlay ${checked ? 'visible' : ''}`}>✓</div>
+        {canPreview && (
+          <button
+            className="thumb-preview-btn"
+            onClick={(e) => { e.stopPropagation(); onPreview(); }}
+            title={file.type === 'video' ? 'Play video' : 'View image'}
+          >
+            {file.type === 'video' ? '▶' : '🔍'}
+          </button>
+        )}
       </div>
       <div className="file-meta">
         <span className="file-name" title={file.name}>{file.name || 'Unknown'}</span>
@@ -594,8 +661,92 @@ function FileCard({ file, viewMode, checked, onToggle, adbPreview, onVisible }) 
   );
 }
 
+// ─── LIGHTBOX VIEWER ─────────────────────────────────────────────────────────
+function LightboxViewer({ file, visibleFiles, onClose, previews, serial, onLoadPreview }) {
+  const navigable = visibleFiles.filter((f) => f.type === 'image' || f.type === 'video');
+  const [idx, setIdx] = useState(() => {
+    const i = navigable.findIndex((f) => f.path === file.path);
+    return i >= 0 ? i : 0;
+  });
+  const current = navigable[idx] || file;
+
+  useEffect(() => {
+    if (serial && current.type === 'image' && !previews[current.path]) {
+      onLoadPreview(current);
+    }
+  }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft' && idx > 0) setIdx((i) => i - 1);
+      if (e.key === 'ArrowRight' && idx < navigable.length - 1) setIdx((i) => i + 1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [idx, navigable.length, onClose]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const localUrl = current.source !== 'adb' ? `file://${current.path}` : null;
+  const previewData = previews[current.path];
+  const imgSrc = localUrl || (previewData && previewData !== 'loading' ? previewData : null);
+
+  return (
+    <div className="lightbox-overlay" onClick={onClose}>
+      <div className="lightbox-box" onClick={(e) => e.stopPropagation()}>
+        <button className="lightbox-close" onClick={onClose}>✕</button>
+
+        {navigable.length > 1 && (
+          <>
+            <button
+              className="lightbox-nav lightbox-prev"
+              onClick={() => setIdx((i) => i - 1)}
+              disabled={idx === 0}
+            >‹</button>
+            <button
+              className="lightbox-nav lightbox-next"
+              onClick={() => setIdx((i) => i + 1)}
+              disabled={idx === navigable.length - 1}
+            >›</button>
+          </>
+        )}
+
+        <div className="lightbox-media">
+          {current.type === 'image' && (
+            imgSrc ? (
+              <img src={imgSrc} alt={current.name} className="lightbox-img" />
+            ) : (
+              <div className="lightbox-placeholder">
+                {previewData === 'loading' ? '⏳ Loading preview…' : '🖼️ Preview not available'}
+              </div>
+            )
+          )}
+          {current.type === 'video' && (
+            localUrl ? (
+              <video src={localUrl} controls autoPlay className="lightbox-video" />
+            ) : (
+              <div className="lightbox-placeholder">
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🎬</div>
+                <p>Video preview not available via ADB.</p>
+                <p style={{ fontSize: 13, marginTop: 6, opacity: 0.6 }}>Restore the file to your PC to watch it.</p>
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="lightbox-info">
+          <span className="lightbox-name">{current.name}</span>
+          <span className="lightbox-meta">{formatSize(current.size)}{current.modified ? ' · ' + formatDate(current.modified) : ''}</span>
+          {navigable.length > 1 && (
+            <span className="lightbox-counter">{idx + 1} / {navigable.length}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── RESTORING ───────────────────────────────────────────────────────────────
-function RestoringScreen({ files, serial, onDone }) {
+function RestoringScreen({ files, serial, onDone, onHome }) {
   const [destPath, setDestPath] = useState('');
   const [started, setStarted] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: files.length });
@@ -624,6 +775,7 @@ function RestoringScreen({ files, serial, onDone }) {
   if (!started) {
     return (
       <div className="screen restoring-screen">
+        <button className="home-btn restoring-cancel" onClick={onHome}>✕ Home</button>
         <div className="restore-setup">
           <div className="restore-icon">💾</div>
           <h2>Choose Restore Location</h2>
@@ -809,7 +961,6 @@ export default function App() {
     go(SCREENS.SCANNING);
   }
 
-
   function handleRestore(files) {
     setFilesToRestore(files);
     go(SCREENS.RESTORING);
@@ -841,6 +992,7 @@ export default function App() {
             mode={recoveryType}
             onBack={() => go(SCREENS.HOME)}
             onConnected={handlePhoneConnected}
+            onHome={handleRestart}
           />
         )}
 
@@ -850,6 +1002,7 @@ export default function App() {
             deviceInfo={deviceInfo}
             onBack={() => go(SCREENS.PHONE_CONNECT)}
             onScan={handleXhideScan}
+            onHome={handleRestart}
           />
         )}
 
@@ -858,6 +1011,7 @@ export default function App() {
             recoveryType={recoveryType}
             onBack={() => go(SCREENS.HOME)}
             onScan={handleLocalScan}
+            onHome={handleRestart}
           />
         )}
 
@@ -866,6 +1020,7 @@ export default function App() {
             sourcePath={sourcePath}
             serial={serial}
             onDone={handleScanDone}
+            onHome={handleRestart}
           />
         )}
 
@@ -875,6 +1030,7 @@ export default function App() {
             serial={serial}
             onBack={() => go(serial ? (recoveryType === 'xhide' ? SCREENS.PHONE_XHIDE : SCREENS.PHONE_CONNECT) : SCREENS.SELECT)}
             onRestore={handleRestore}
+            onHome={handleRestart}
           />
         )}
 
@@ -883,6 +1039,7 @@ export default function App() {
             files={filesToRestore}
             serial={serial}
             onDone={handleRestoreDone}
+            onHome={handleRestart}
           />
         )}
 

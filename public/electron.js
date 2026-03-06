@@ -7,11 +7,15 @@ const { exec, execFile, spawn } = require('child_process');
 const isDev = !app.isPackaged;
 
 function createWindow() {
+  const iconFile = process.platform === 'win32' ? 'favicon.ico' : 'icon.png';
+  const iconPath = path.join(__dirname, iconFile);
+
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 900,
     minHeight: 600,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -434,6 +438,8 @@ ipcMain.handle('restore-files', async (event, files, destDir) => {
 });
 
 // ── App lifecycle ──────────────────────────────────────────────────────────
+app.setName('RecoveryPro');
+
 app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {
