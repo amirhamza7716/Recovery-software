@@ -1,10 +1,21 @@
 {
   "name": "desktop-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "main": "public/electron.js",
   "homepage": "./",
+  "author": {
+    "name": "RecoveryPro",
+    "email": "support@recoverypro.app"
+  },
+  "description": "Phone & device file recovery software for images, videos, and documents",
   "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "devDependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -12,11 +23,7 @@
     "concurrently": "^9.2.1",
     "electron": "^40.8.0",
     "electron-builder": "^26.8.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-scripts": "5.0.1",
-    "wait-on": "^9.0.4",
-    "web-vitals": "^2.1.4"
+    "wait-on": "^9.0.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -25,25 +32,57 @@
     "eject": "react-scripts eject",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron:build": "npm run build && electron-builder"
+    "electron:build": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:all": "npm run build && electron-builder --linux --win"
   },
   "build": {
-    "appId": "com.phonerecovery.desktop",
+    "appId": "com.recoverypro.desktop",
     "productName": "RecoveryPro",
+    "copyright": "Copyright © 2025 RecoveryPro",
     "icon": "public/icon.png",
     "files": [
       "build/**/*",
       "public/electron.js",
+      "public/preload.js",
       "public/icon.png",
+      "public/icon256.png",
+      "public/icon64.png",
+      "public/icon32.png",
       "public/favicon.ico"
     ],
+    "directories": {
+      "output": "dist"
+    },
     "linux": {
-      "target": "AppImage",
-      "icon": "public/icon.png"
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "icon": "public/icon.png",
+      "category": "Utility",
+      "description": "Phone & device file recovery software"
+    },
+    "deb": {
+      "depends": ["gconf2", "gconf-service", "libnotify4", "libappindicator1", "libxtst6", "libnss3"]
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/favicon.ico"
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "public/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RecoveryPro"
     },
     "mac": {
       "target": "dmg",
